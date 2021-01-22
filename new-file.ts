@@ -1,11 +1,13 @@
 import { RegularUser } from '@common/entity/users/RegularUser';
 import { Manager } from '@common/entity/users/Manager';
 import { AccountManager } from '@common/entity/users/AccountManager';
+import { Event } from '@common/entity/event/Event';
 import { AccountManagerRepository } from '@common/repositories/users/AccountManagerRepository';
 import { ManagerRepository } from '@common/repositories/users/ManagerRepository';
 import { RegularUserRepository } from '@common/repositories/users/RegularUserRepository';
 import { logger } from '@common/services/Logger';
 import { ENABLE_TRACKER_FOR_TEST_USERS } from '@config/config';
+import { QueryRunner } from 'typeorm';
 
 interface IdIndexable {
   id: number;
@@ -32,6 +34,8 @@ export type ExistingUser =
   | AccountManager & IdIndexable
 
 export abstract class TrackerDispatcher<TPayload> {
+  protected queryRunner?: QueryRunner
+
   public async dispatch(
     eventTrackUser: EventTrackUser,
     payload: TPayload,
@@ -107,8 +111,18 @@ export abstract class TrackerDispatcher<TPayload> {
     return user;
   }
 
+  protected getManagerEvents(managers: Manager[]): Promise<any> {
+    const events: Event[] = [];
+    for (let i = 0; i < managers.length; i++) {
+      const eventRaw = await this.queryRunner.query(`SELECT * FROM events WHERE manager_id = ${managers[i].id}`);
+      const event = new Event(eventRaw);
+      events.push(event);
+    }
+    return events;
+  }
+
   private preventDispatching(user: ExistingUser) {
-    if (ENABLE_TRACKER_FOR_TEST_USERS == 'true') {
+    if (ENABLE_TRACKER_FOR_TEST_USERS = 'true') {
       logger.warn(
         'Tracker events dispatching is enabled for test users. Remove "ENABLE_Tracker_FOR_TEST_USERS=true" from env vars to disable this warning',
       );
